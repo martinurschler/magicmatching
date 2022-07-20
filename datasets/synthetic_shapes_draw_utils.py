@@ -116,6 +116,12 @@ def generate_background(size=(960, 1280), nb_blobs=100, min_rad_ratio=0.01,
     cv2.blur(img, (kernel_size, kernel_size), img)
     return img
 
+def draw_gaussian_noise(img):
+    """ Apply random noise to the image """
+    cv2.randu(img, 0, 255)
+    # return empty points
+    return np.empty((0, 2), dtype=np.int)
+
 def draw_single_line(img):
     """ create two random points within the image (sources for drawing a line), at least MIN_DIST pixels apart
     """

@@ -20,7 +20,7 @@ if __name__ == "__main__":
     # sets seeds for numpy, torch and python.random.
     pl.seed_everything(42, workers=True)
     DETERMINISTIC_TRAINER = True
-    FAST_DEV_RUN_TRAINER = True
+    FAST_DEV_RUN_TRAINER = False
 
     torch.set_default_tensor_type(torch.FloatTensor)
 

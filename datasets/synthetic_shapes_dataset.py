@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
 from datasets.synthetic_shapes_draw_utils import generate_background, draw_star, draw_checkerboard, draw_polygon, draw_cube
-from datasets.synthetic_shapes_draw_utils import draw_stripes, draw_ellipses, draw_multiple_polygons, draw_lines
+from datasets.synthetic_shapes_draw_utils import draw_stripes, draw_ellipses, draw_multiple_polygons, draw_lines, draw_gaussian_noise
 from utils.image_utils import normalize_2d_gray_image_for_nn
 
 class SyntheticShapesDataset(torch.utils.data.Dataset):
@@ -35,12 +35,19 @@ class SyntheticShapesDataset(torch.utils.data.Dataset):
         # these are the potential drawing operations
         drawing_operations = [draw_star, draw_ellipses, draw_checkerboard,
                               draw_lines, draw_polygon, draw_cube,
-                              draw_stripes, draw_multiple_polygons]
+                              draw_stripes, draw_multiple_polygons, draw_gaussian_noise]
 
         random_index = np.random.randint(0, len(drawing_operations))
+        random_index=2
         # call the randomly selected drawing operation
         points = drawing_operations[random_index](img)
 
+        # 50% chance to also apply a gaussian blur with 5x5 kernel
+        do_blur = np.random.randint(0, 2)
+        if do_blur == 1:
+            img = cv2.GaussianBlur(img, (5,5), 0)
+
+        # prepare the target function
         target = np.zeros(self.image_size, dtype=np.float32)
         # set target signal to 1 for point locations
         for pt_idx in range(points.shape[0]):
@@ -62,14 +69,16 @@ class SyntheticShapesDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.samples_per_epoch = batches_per_epoch * self.batch_size
 
-        self.stateless_train_dataset = SyntheticShapesDataset(image_size=(192,256),
+        shapes_image_size = (192, 256)
+
+        self.stateless_train_dataset = SyntheticShapesDataset(image_size=shapes_image_size,
                                                               samples_per_epoch=self.samples_per_epoch)
-        self.stateless_val_dataset = SyntheticShapesDataset(image_size=(192,256),
+        self.stateless_val_dataset = SyntheticShapesDataset(image_size=shapes_image_size,
                                                             samples_per_epoch=100 * self.batch_size)
-        self.stateless_test_dataset = SyntheticShapesDataset(image_size=(192, 256),
+        self.stateless_test_dataset = SyntheticShapesDataset(image_size=shapes_image_size,
                                                              samples_per_epoch=100 * self.batch_size)
 
-        self.stateless_predict_dataset = SyntheticShapesDataset(image_size=(192, 256),
+        self.stateless_predict_dataset = SyntheticShapesDataset(image_size=shapes_image_size,
                                                                 samples_per_epoch=1)
 
         #self.train_specific_transform = transforms.Compose([transforms.ToTensor()])
