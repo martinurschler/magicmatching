@@ -24,8 +24,7 @@ if __name__ == "__main__":
     syntheticshapes = SyntheticShapesDataModule(BATCHES_PER_EPOCH, BATCH_SIZE)
 
     #unet_magicpoint = UNetModule.load_from_checkpoint(str(Path("unet_magicpoint_model") / "lightning_logs" / "version_5" / "checkpoints" / "epoch=9-step=10000.ckpt"))
-    #unet_magicpoint = UNetModule.load_from_checkpoint("current_best_model_single_line.ckpt")
-    unet_magicpoint = UNetModule.load_from_checkpoint("epoch=23-step=240000.ckpt")
+    unet_magicpoint = UNetModule.load_from_checkpoint("current_best_model_overall.ckpt")
 
     predict_loader = syntheticshapes.predict_dataloader()
     count = 0
