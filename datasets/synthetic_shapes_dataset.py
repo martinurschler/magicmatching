@@ -38,7 +38,6 @@ class SyntheticShapesDataset(torch.utils.data.Dataset):
                               draw_stripes, draw_multiple_polygons, draw_gaussian_noise]
 
         random_index = np.random.randint(0, len(drawing_operations))
-        random_index=2
         # call the randomly selected drawing operation
         points = drawing_operations[random_index](img)
 
