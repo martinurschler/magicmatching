@@ -30,7 +30,7 @@ if __name__ == "__main__":
     unet_magicpoint = MagicPointUNetModule()
 
     # train model
-    trainer = pl.Trainer(accelerator='gpu', devices=1, max_epochs=20, deterministic=DETERMINISTIC_TRAINER,
+    trainer = pl.Trainer(accelerator='gpu', devices=1, max_epochs=50, deterministic=DETERMINISTIC_TRAINER,
                          fast_dev_run=FAST_DEV_RUN_TRAINER,
                          default_root_dir="unet_magicpoint_model",
                          callbacks=[DeviceStatsMonitor(), ModelSummary(max_depth=2)])
