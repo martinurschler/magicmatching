@@ -9,13 +9,15 @@ import pytorch_lightning as pl
 from datasets.synthetic_shapes_draw_utils import generate_background, draw_star, draw_checkerboard, draw_polygon, draw_cube
 from datasets.synthetic_shapes_draw_utils import draw_stripes, draw_ellipses, draw_multiple_polygons, draw_lines, draw_gaussian_noise
 from utils.image_utils import normalize_2d_gray_image_for_nn
+from utils.augmentation_utils import ImgAugTransform
 
 class SyntheticShapesDataset(torch.utils.data.Dataset):
 
-    def __init__(self, image_size, samples_per_epoch):
+    def __init__(self, image_size, samples_per_epoch, apply_augmentation: bool = False):
         super().__init__()
         self.image_size = image_size
         self.samples_per_epoch = samples_per_epoch
+        self.apply_augmentation = apply_augmentation
         pass
 
     def __len__(self):
@@ -37,14 +39,13 @@ class SyntheticShapesDataset(torch.utils.data.Dataset):
                               draw_lines, draw_polygon, draw_cube,
                               draw_stripes, draw_multiple_polygons, draw_gaussian_noise]
 
+        # call a randomly selected drawing operation
         random_index = np.random.randint(0, len(drawing_operations))
-        # call the randomly selected drawing operation
         points = drawing_operations[random_index](img)
 
-        # 50% chance to also apply a gaussian blur with 5x5 kernel
-        do_blur = np.random.randint(0, 2)
-        if do_blur == 1:
-            img = cv2.GaussianBlur(img, (5,5), 0)
+        if self.apply_augmentation:
+            augmentation = ImgAugTransform()
+            img = augmentation(img)
 
         # prepare the target function
         target = np.zeros(self.image_size, dtype=np.float32)
@@ -71,14 +72,15 @@ class SyntheticShapesDataModule(pl.LightningDataModule):
         shapes_image_size = (192, 256)
 
         self.stateless_train_dataset = SyntheticShapesDataset(image_size=shapes_image_size,
-                                                              samples_per_epoch=self.samples_per_epoch)
+                                                              samples_per_epoch=self.samples_per_epoch,
+                                                              apply_augmentation=True)
         self.stateless_val_dataset = SyntheticShapesDataset(image_size=shapes_image_size,
                                                             samples_per_epoch=100 * self.batch_size)
         self.stateless_test_dataset = SyntheticShapesDataset(image_size=shapes_image_size,
                                                              samples_per_epoch=100 * self.batch_size)
 
         self.stateless_predict_dataset = SyntheticShapesDataset(image_size=shapes_image_size,
-                                                                samples_per_epoch=1)
+                                                                samples_per_epoch=1, apply_augmentation=False)
 
         #self.train_specific_transform = transforms.Compose([transforms.ToTensor()])
         #self.general_transform = transforms.Compose([transforms.ToTensor()])

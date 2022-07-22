@@ -1,11 +1,10 @@
-import math
 from pathlib import Path
 
 import numpy as np
 import cv2
 import torch
 
-from unet_model import UNetModule
+from unet_model import MagicPointUNetModule
 from datasets.synthetic_shapes_dataset import SyntheticShapesDataModule
 
 from utils.nms_utils import getPtsFromHeatmap
@@ -20,11 +19,16 @@ if __name__ == "__main__":
     BATCHES_PER_EPOCH = 1000
     BATCH_SIZE = 32
     tmp_dir = "tmp"
+    if not Path(tmp_dir).is_dir():
+        try:
+            Path(tmp_dir).mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            print(f"Error: {e.strerror}")
+            exit()
 
     syntheticshapes = SyntheticShapesDataModule(BATCHES_PER_EPOCH, BATCH_SIZE)
 
-    #unet_magicpoint = UNetModule.load_from_checkpoint(str(Path("unet_magicpoint_model") / "lightning_logs" / "version_5" / "checkpoints" / "epoch=9-step=10000.ckpt"))
-    unet_magicpoint = UNetModule.load_from_checkpoint("current_best_model_overall.ckpt")
+    unet_magicpoint = MagicPointUNetModule.load_from_checkpoint("epoch=4-step=50000.ckpt")
 
     predict_loader = syntheticshapes.predict_dataloader()
     count = 0

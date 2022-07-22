@@ -4,7 +4,9 @@ import numpy as np
 import torch
 import cv2
 
-from unet_model import UNetModule
+import pytorch_lightning as pl
+
+from unet_model import MagicPointUNetModule
 from datasets.coco_dataset import CocoDataModule
 from utils.nms_utils import getPtsFromHeatmap
 from utils.image_utils import draw_interest_points
@@ -12,11 +14,19 @@ from utils.image_utils import draw_interest_points
 
 if __name__ == "__main__":
 
+    pl.seed_everything(42, workers=True)
+
     tmp_dir = "tmp"
+    if not Path(tmp_dir).is_dir():
+        try:
+            Path(tmp_dir).mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            print(f"Error: {e.strerror}")
+            exit()
 
     coco_base_path = PureWindowsPath("E:/01_Repos/xzho372/data/COCO")
 
-    unet_magicpoint = UNetModule.load_from_checkpoint("current_best_model_overall.ckpt")
+    unet_magicpoint = MagicPointUNetModule.load_from_checkpoint("epoch=4-step=50000.ckpt")
 
     coco = CocoDataModule(data_dir=coco_base_path)
     coco.setup()
@@ -59,5 +69,5 @@ if __name__ == "__main__":
 
             count += 1
 
-            if count > 5:
+            if count > 20:
                 break

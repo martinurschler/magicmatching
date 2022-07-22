@@ -43,41 +43,29 @@ class UNet(torch.nn.Module):
     def forward(self, x):
         skip_connections = []
         for down in self.downs:
-            #print("\ndown before conv", x.shape)
             x = down(x)
-            #print("down after conv", x.shape)
             skip_connections.append(x)
             x = self.pool(x)
-            #print("down after pool", x.shape)
 
         x = self.bottleneck(x)
-        #print("bottleneck", x.shape)
         skip_connections = skip_connections[::-1]
 
-        #print(x.shape, len(x.shape))
         channel_dimension = len(x.shape) - 3 # if we have batches (4 dim tensor) this is 1, if not (3dim) 0
 
         for idx in range(0, len(self.ups), 2):
-            #print("up before transp conv", x.shape)
             x = self.ups[idx](x)
-            #print("up after transpose conv", x.shape)
             skip_connection = skip_connections[idx//2]
-            #print("skip shape", skip_connection.shape)
             if x.shape != skip_connection.shape:
-                #print("resize")
                 x = transforms.functional.resize(x, size=skip_connection.shape[2:])
-                #print("after resize", x.shape)
             concat_skip = torch.cat((skip_connection, x), dim=channel_dimension)
-            #print("after cat", concat_skip.shape)
             x = self.ups[idx+1](concat_skip)
-            #print("x shape", x.shape)
 
         return self.final_conv(x)
 
-class UNetModule(pl.LightningModule):
-    def __init__(self, unet):
+class MagicPointUNetModule(pl.LightningModule):
+    def __init__(self):
         super().__init__()
-        self.unet = unet
+        self.unet = UNet(in_channels=1, out_channels=1)
         self.save_hyperparameters()
 
     def forward(self, x):
@@ -89,11 +77,11 @@ class UNetModule(pl.LightningModule):
         train_loss = torch.nn.functional.mse_loss(target_hat, target)
         return train_loss
 
-    def validation_step(self, batch, batch_idx):
-        img, target = batch
-        target_hat = self.unet(img)
-        val_loss = torch.nn.functional.mse_loss(target_hat, target)
-        self.log("val loss", val_loss)
+    #def validation_step(self, batch, batch_idx):
+    #    img, target = batch
+    #    target_hat = self.unet(img)
+    #    val_loss = torch.nn.functional.mse_loss(target_hat, target)
+    #    self.log("val loss", val_loss)
 
     def test_step(self, batch, batch_idx):
         img, target = batch

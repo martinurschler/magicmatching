@@ -1,8 +1,3 @@
-from pathlib import Path
-
-import numpy as np
-import cv2
-
 import torch
 
 import pytorch_lightning as pl
@@ -10,7 +5,7 @@ from pytorch_lightning.callbacks import ModelSummary, DeviceStatsMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
 
 # my own libs
-from unet_model import UNet, UNetModule
+from unet_model import MagicPointUNetModule
 from datasets.synthetic_shapes_dataset import SyntheticShapesDataModule
 
 
@@ -29,13 +24,13 @@ if __name__ == "__main__":
 
     syntheticshapes = SyntheticShapesDataModule(BATCHES_PER_EPOCH, BATCH_SIZE)
     train_loader = syntheticshapes.train_dataloader()
-    val_loader = syntheticshapes.val_dataloader()
+    #val_loader = syntheticshapes.val_dataloader()
 
     # the UNet inspired model
-    unet_magicpoint = UNetModule(UNet())
+    unet_magicpoint = MagicPointUNetModule()
 
     # train model
-    trainer = pl.Trainer(accelerator='gpu', devices=1, max_epochs=50, deterministic=DETERMINISTIC_TRAINER,
+    trainer = pl.Trainer(accelerator='gpu', devices=1, max_epochs=20, deterministic=DETERMINISTIC_TRAINER,
                          fast_dev_run=FAST_DEV_RUN_TRAINER,
                          default_root_dir="unet_magicpoint_model",
                          callbacks=[DeviceStatsMonitor(), ModelSummary(max_depth=2)])
@@ -47,6 +42,6 @@ if __name__ == "__main__":
     if FAST_DEV_RUN_TRAINER == True:
         trainer.save_checkpoint("dummy_model.ckpt")
     else:
-        trainer.save_checkpoint("current_best_model.ckpt")
+        trainer.save_checkpoint("current_best_magicpoint_model_v0.ckpt")
 
 
