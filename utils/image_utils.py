@@ -67,7 +67,7 @@ def get_groundtruth_keypoint_locations_from_heatmap(torch_tensor_heatmap):
     return keypoint_locations
 
 
-def get_keypoint_locations_from_predicted_heatmap(torch_tensor_heatmap):
+def get_keypoint_locations_from_predicted_heatmap(torch_tensor_heatmap, nms_conf_thr = 0.5):
     ''' input is an img as a torch tensor, which has height and width in its last two dimensions
         output is a list of keypoint locations consisting of (x,y) tuples
     '''
@@ -79,8 +79,8 @@ def get_keypoint_locations_from_predicted_heatmap(torch_tensor_heatmap):
     heatmap[heatmap < 0.0] = 0.0
     heatmap[heatmap > 1.0] = 1.0
 
-    predicted_keypoint_locations = getPtsFromHeatmap(heatmap, 0.5, 1)
-    print("number of points from heatmap", predicted_keypoint_locations.shape[1])
+    predicted_keypoint_locations = getPtsFromHeatmap(heatmap, nms_conf_thr, 2)
+    #print("number of points from heatmap", predicted_keypoint_locations.shape[1])
 
     keypoints = []
     for pt_idx in range(predicted_keypoint_locations.shape[1]):
