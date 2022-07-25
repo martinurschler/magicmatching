@@ -10,7 +10,7 @@ from utils.image_utils import get_keypoint_locations_from_predicted_heatmap, wri
 
 if __name__ == "__main__":
 
-    pl.seed_everything(42, workers=True)
+    #pl.seed_everything(42, workers=True)
 
     tmp_dir = "tmp"
     if not Path(tmp_dir).is_dir():
@@ -22,7 +22,8 @@ if __name__ == "__main__":
 
     coco_base_path = PureWindowsPath("E:/01_Repos/xzho372/data/COCO")
 
-    unet_magicpoint = MagicPointUNetModule.load_from_checkpoint("epoch=4-step=50000.ckpt")
+    model_path = str(Path("data") / "pretrained_archive" / "current_best_magicpoint_model_v1.ckpt")
+    unet_magicpoint = MagicPointUNetModule.load_from_checkpoint(model_path)
 
     coco = CocoDataModule(data_dir=coco_base_path)
     coco.setup()

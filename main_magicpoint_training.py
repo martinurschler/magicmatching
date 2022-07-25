@@ -32,7 +32,7 @@ if __name__ == "__main__":
     # train model
     trainer = pl.Trainer(accelerator='gpu', devices=1, max_epochs=50, deterministic=DETERMINISTIC_TRAINER,
                          fast_dev_run=FAST_DEV_RUN_TRAINER,
-                         default_root_dir="unet_magicpoint_model",
+                         default_root_dir="unet_magicpoint_model_v1",
                          callbacks=[DeviceStatsMonitor(), ModelSummary(max_depth=2)])
     trainer.fit(model=unet_magicpoint, train_dataloaders=train_loader)  # val_dataloaders=val_loader
 
@@ -42,6 +42,6 @@ if __name__ == "__main__":
     if FAST_DEV_RUN_TRAINER == True:
         trainer.save_checkpoint("dummy_model.ckpt")
     else:
-        trainer.save_checkpoint("current_best_magicpoint_model_v0.ckpt")
+        trainer.save_checkpoint("current_best_magicpoint_model_v1.ckpt")
 
 

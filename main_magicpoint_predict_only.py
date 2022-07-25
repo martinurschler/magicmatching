@@ -26,7 +26,8 @@ if __name__ == "__main__":
 
     syntheticshapes = SyntheticShapesDataModule(BATCHES_PER_EPOCH, BATCH_SIZE)
 
-    unet_magicpoint = MagicPointUNetModule.load_from_checkpoint("epoch=4-step=50000.ckpt")
+    model_path = str(Path("data") / "pretrained_archive" / "current_best_magicpoint_model_v1.ckpt")
+    unet_magicpoint = MagicPointUNetModule.load_from_checkpoint(model_path)
 
     predict_loader = syntheticshapes.predict_dataloader()
     count = 0

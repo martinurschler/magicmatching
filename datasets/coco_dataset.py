@@ -1,9 +1,6 @@
 from typing import Optional
 from pathlib import Path
 
-import cv2
-import numpy as np
-
 import torch
 from torch.utils.data import DataLoader
 
@@ -13,7 +10,7 @@ from utils.image_utils import read_rgb_image_to_single_channel_tensor
 
 class CocoDataset(torch.utils.data.Dataset):
 
-    def __init__(self, data_dir: str, train: bool):
+    def __init__(self, data_dir: str, train: bool) -> None:
         super().__init__()
         self.data_dir = data_dir
 
