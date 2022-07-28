@@ -11,6 +11,35 @@ from utils.image_utils import normalize_2d_gray_image_for_nn, get_keypoint_locat
 from utils.image_utils import generate_gt_heatmap_from_keypoint_list
 
 
+def computeRandomHomographyTransformation(gray_image, resample_size):
+    # compute the perspective transform matrix and then apply it
+    p0 = (np.abs(np.random.normal(0.0, 0.125 * img_width)),
+          np.abs(np.random.normal(0.0, 0.125 * img_height)))
+    p1 = (np.abs(np.random.normal(0.0, 0.125 * img_width)),
+          np.abs(np.random.normal(0.0, 0.125 * img_height)))
+    p2 = (np.abs(np.random.normal(0.0, 0.125 * img_width)),
+          np.abs(np.random.normal(0.0, 0.125 * img_height)))
+    p3 = (np.abs(np.random.normal(0.0, 0.125 * img_width)),
+          np.abs(np.random.normal(0.0, 0.125 * img_height)))
+
+    rect = np.array([
+        [p0[0], p0[1]],
+        [img_width - 1 - p1[0], p1[1]],
+        [img_width - 1 - p2[0], img_height - 1 - p2[1]],
+        [p3[0], img_height - 1 - p3[1]]], dtype="float32")
+    dst = np.array([
+        [0, 0],
+        [RESAMPLE_SIZE_SQUARE - 1, 0],
+        [RESAMPLE_SIZE_SQUARE - 1, RESAMPLE_SIZE_SQUARE - 1],
+        [0, RESAMPLE_SIZE_SQUARE - 1]], dtype="float32")
+
+    homography = cv2.getPerspectiveTransform(rect, dst)
+    # print("homography", M)
+    warped_image = cv2.warpPerspective(gray_image, homography, resample_size)
+
+    return (warped_image, homography)
+
+
 #def intersection(lst1, lst2):
 #    # Use of hybrid method
 #    temp = set(lst2)
@@ -42,8 +71,12 @@ def merge_keypoints(keypoints1, keypoints2, distance_threshold_px = 2):
 if __name__ == "__main__":
 
     DEBUG_OUTPUT = False
+    DEBUG_TIMING_OUTPUT = True
 
-    N_H = 25
+    N_H = 64
+    N_H_BATCHES = 16
+    N_H_NR_IMAGES_PER_BATCH = N_H // N_H_BATCHES
+
     RESAMPLE_SIZE_SQUARE = 384
     NMS_CONF_THRESHOLD = 0.15 # relative to a 0 - 1 range
 
@@ -57,8 +90,9 @@ if __name__ == "__main__":
             print(f"Error: {e.strerror}")
             exit()
 
-    coco_base_path = PureWindowsPath("E:/01_Repos/xzho372/data/COCO")
-    which_coco = 'train2014'
+    #coco_base_path = PureWindowsPath("E:/01_Repos/xzho372/data/COCO")
+    coco_base_path = PureWindowsPath("./data/COCO")
+    which_coco = 'val2017'
 
     model_path = str(Path("data") / "pretrained_archive" / "current_best_magicpoint_model_v1.ckpt")
     unet_magicpoint = MagicPointUNetModule.load_from_checkpoint(model_path)
@@ -77,7 +111,8 @@ if __name__ == "__main__":
 
             tic_per_image = time.perf_counter()
 
-            #print("processing image ", img_idx)
+            if DEBUG_TIMING_OUTPUT:
+                print("processing image ", img_idx)
 
             img_name = coco_image_names[img_idx]
             output_filename = str(output_path / Path(f"{img_name}_ha.png"))
@@ -97,7 +132,8 @@ if __name__ == "__main__":
             cv2.imwrite(output_filename, gray_image)
 
             toc = time.perf_counter()
-            #print(f"Loading image with opencv: {toc - tic:0.4f} seconds")
+            if DEBUG_TIMING_OUTPUT:
+                print(f"Loading image with opencv: {toc - tic:0.4f} seconds")
 
             if DEBUG_OUTPUT:
                 filename = str(Path(tmp_dir) / f"test_ha_{img_idx}.png")
@@ -126,7 +162,8 @@ if __name__ == "__main__":
             #cv2.imwrite(filename, np.float32(255.0) * t_hat_identity)
 
             toc = time.perf_counter()
-            #print(f"Prep and prediction of identity transform : {toc - tic:0.4f} seconds")
+            if DEBUG_TIMING_OUTPUT:
+                print(f"Prep and prediction of identity transform : {toc - tic:0.4f} seconds")
 
             if DEBUG_OUTPUT:
                 predicted_keypoints = get_keypoint_locations_from_predicted_heatmap(torch.Tensor(t_hat_identity),
@@ -141,6 +178,37 @@ if __name__ == "__main__":
             tic = time.perf_counter()
 
             avg_prediction_time = 0.0
+
+            for batch_idx in range(N_H_BATCHES):
+                #print("batch index", batch_idx)
+
+                # do NR_IMAGES_PER_BATCH warpings
+                warped_images = []
+                for ha_idx in range(N_H_NR_IMAGES_PER_BATCH):
+                    #print("ha index", ha_idx)
+
+                    # apply a number N_H of homographic adaptations ha
+                    (warped_image, homography) = computeRandomHomographyTransformation(gray_image,
+                                                                                       (RESAMPLE_SIZE_SQUARE, RESAMPLE_SIZE_SQUARE))
+                    warped_images.append((warped_image, homography))
+
+                tensor_image = np.zeros((N_H_NR_IMAGES_PER_BATCH, 1, RESAMPLE_SIZE_SQUARE, RESAMPLE_SIZE_SQUARE))
+                count = 0
+                for (warped_image, homography) in warped_images:
+                    tensor_image[count, :, :, :] = np.array([normalize_2d_gray_image_for_nn(warped_image)])
+                    count += 1
+                print(tensor_image.shape)
+                # apply the magicpoint predictor on a batch
+                tic1 = time.perf_counter()
+                t_hat = unet_magicpoint(torch.Tensor(tensor_image))
+                toc1 = time.perf_counter()
+                if DEBUG_TIMING_OUTPUT:
+                    print(f"prediction of batched transform : {toc1 - tic1:0.4f} seconds")
+
+            if img_idx >= 3:
+                break
+            else:
+                continue
 
             # apply a number N_H of homographic adaptations ha
             for ha_idx in range(N_H):
@@ -213,12 +281,14 @@ if __name__ == "__main__":
                 #filename = str(Path("tmp") / f"test_ha_{img_idx}_{ha_idx}_target.png")
                 #cv2.imwrite(filename, t_hat)
 
-            #print(f"------------ average model prediction time : {avg_prediction_time / np.float32(N_H)} seconds")
+            if DEBUG_TIMING_OUTPUT:
+                print(f"------------ average model prediction time : {avg_prediction_time / np.float32(N_H)} seconds")
 
             #print("mask min max", np.min(mask_for_averaging_heatmaps), np.max(mask_for_averaging_heatmaps))
 
             toc = time.perf_counter()
-            #print(f"Homographic Adaptation loop : {toc - tic:0.4f} seconds")
+            if DEBUG_TIMING_OUTPUT:
+                print(f"Homographic Adaptation loop : {toc - tic:0.4f} seconds")
 
             if HA_MODE_AVERAGING == True:
                 t_hat_accumulated += t_hat_identity
@@ -252,14 +322,18 @@ if __name__ == "__main__":
             gt_heatmap = generate_gt_heatmap_from_keypoint_list(predicted_keypoints, RESAMPLE_SIZE_SQUARE, RESAMPLE_SIZE_SQUARE)
 
             toc = time.perf_counter()
-            #print(f"Setup final target image: {toc - tic:0.4f} seconds")
+            if DEBUG_TIMING_OUTPUT:
+                print(f"Setup final target image: {toc - tic:0.4f} seconds")
 
             tic = time.perf_counter()
 
             cv2.imwrite(output_target_filename, np.float32(255.0) * gt_heatmap)
 
             toc = time.perf_counter()
-            #print(f"Writing target image: {toc - tic:0.4f} seconds")
+            if DEBUG_TIMING_OUTPUT:
+                print(f"Writing target image: {toc - tic:0.4f} seconds")
 
             toc_per_image = time.perf_counter()
-            #print(f"Overall per image: {toc_per_image - tic_per_image:0.4f} seconds")
+            if DEBUG_TIMING_OUTPUT:
+                print(f"Overall per image: {toc_per_image - tic_per_image:0.4f} seconds")
+
