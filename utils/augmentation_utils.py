@@ -1,7 +1,27 @@
 import numpy as np
 from imgaug import augmenters as iaa
 
-class ImgAugTransform:
+class ImgAugTransformHomographicAdaptation:
+
+    def __init__(self):
+
+        # homographic adaptation consists of: cropping at the center, scaling, translating, rotating and
+        # symmetric perspective distortion
+
+        # let's try the perspective transform from iaa first, it seems to be a perfect fit!
+        self.aug = iaa.PerspectiveTransform(scale=(0.01, 0.20), keep_size=True)
+
+        pass
+
+    def __call__(self, img):
+        '''
+        :param img: an 8bit uint image passed in as a numpy array
+        :return: an augmented 8bit uint image passed in as a numpy array
+        '''
+        img = self.aug.augment_image(img)
+        return img
+
+class ImgAugTransformPhotometric:
 
     def __init__(self):
 

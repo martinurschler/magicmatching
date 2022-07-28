@@ -10,7 +10,7 @@ from utils.image_utils import get_keypoint_locations_from_predicted_heatmap, wri
 
 if __name__ == "__main__":
 
-    #pl.seed_everything(42, workers=True)
+    pl.seed_everything(42, workers=True)
 
     tmp_dir = "tmp"
     if not Path(tmp_dir).is_dir():
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         with torch.no_grad():
             target_hat = unet_magicpoint(img)
 
-            predicted_keypoints = get_keypoint_locations_from_predicted_heatmap(target_hat)
+            predicted_keypoints = get_keypoint_locations_from_predicted_heatmap(target_hat, nms_conf_thr=0.15)
             filename = str(Path(tmp_dir) / "predict_coco{}.png".format(count))
             write_image_with_keypoints(img, predicted_keypoints, filename)
 

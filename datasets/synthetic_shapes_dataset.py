@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 from datasets.synthetic_shapes_draw_utils import generate_background, draw_star, draw_checkerboard, draw_polygon, draw_cube
 from datasets.synthetic_shapes_draw_utils import draw_stripes, draw_ellipses, draw_multiple_polygons, draw_lines, draw_gaussian_noise
 from utils.image_utils import normalize_2d_gray_image_for_nn
-from utils.augmentation_utils import ImgAugTransform
+from utils.augmentation_utils import ImgAugTransformPhotometric
 
 class SyntheticShapesDataset(torch.utils.data.Dataset):
 
@@ -44,7 +44,7 @@ class SyntheticShapesDataset(torch.utils.data.Dataset):
         points = drawing_operations[random_index](img)
 
         if self.apply_augmentation:
-            augmentation = ImgAugTransform()
+            augmentation = ImgAugTransformPhotometric()
             img = augmentation(img)
 
         # prepare the target function

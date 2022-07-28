@@ -6,7 +6,7 @@ def nms_fast(in_corners, H, W, dist_thresh):
     Run a faster approximate Non-Max-Suppression on numpy corners shaped:
       3xN [x_i,y_i,conf_i]^T
     Algo summary: Create a grid sized HxW. Assign each corner location a 1, rest
-    are zeros. Iterate through all the 1's and convert them either to -1 or 0.
+    are zeros. Iterate through all the 1's and convert them either to -1 (keep point) or 0 (suppress point.
     Suppress points by setting nearby values to 0.
     Grid Value Legend:
     -1 : Kept.
@@ -62,26 +62,31 @@ def nms_fast(in_corners, H, W, dist_thresh):
     out_inds = inds1[inds_keep[inds2]]
     return out, out_inds
 
-def getPtsFromHeatmap(heatmap, conf_thresh = 0.5, nms_dist = 5, border_remove = 0):
+def getPtsFromHeatmap(heatmap, conf_thresh = 0.5, nms_dist = 3, border_remove = 0):
     '''
+    This function prepares the keypoint extraction from input heatmap by applying the confidence threshold before NMS
     :param self:
     :param heatmap:
-        np (H, W)
-    :return:
+        np (H, W): it is assumed that values are in between 0 and 1!
+    :return: list of points indicating non max suppressed, confidence sorted keypoints
     '''
 
     H, W = heatmap.shape[0], heatmap.shape[1]
     xs, ys = np.where(heatmap >= conf_thresh)  # Confidence threshold.
-    #sparsemap = (heatmap >= conf_thresh)
     if len(xs) == 0:
         return np.zeros((3, 0))
     pts = np.zeros((3, len(xs)))  # Populate point data sized 3xN.
     pts[0, :] = ys
     pts[1, :] = xs
     pts[2, :] = heatmap[xs, ys]
-    pts, _ = nms_fast(pts, H, W, dist_thresh=nms_dist)  # Apply NMS.
+
+    # Apply NMS.
+    pts, _ = nms_fast(pts, H, W, dist_thresh=nms_dist)
+
+    # Sort by confidence.
     inds = np.argsort(pts[2, :])
-    pts = pts[:, inds[::-1]]  # Sort by confidence.
+    pts = pts[:, inds[::-1]]
+
     # Remove points along border.
     bord = border_remove
     if bord > 0:
@@ -89,4 +94,5 @@ def getPtsFromHeatmap(heatmap, conf_thresh = 0.5, nms_dist = 5, border_remove = 
         toremoveH = np.logical_or(pts[1, :] < bord, pts[1, :] >= (H - bord))
         toremove = np.logical_or(toremoveW, toremoveH)
         pts = pts[:, ~toremove]
+
     return pts

@@ -2,6 +2,7 @@ from pathlib import Path, PureWindowsPath
 import os
 
 import torch
+import pytorch_lightning as pl
 
 from unet_model import MagicPointUNetModule
 from datasets.hpatches_dataset import HPatchesDataModule
@@ -9,7 +10,7 @@ from utils.image_utils import get_keypoint_locations_from_predicted_heatmap, wri
 
 if __name__ == "__main__":
 
-    #pl.seed_everything(42, workers=True)
+    pl.seed_everything(42, workers=True)
 
     DATA_ROOT_PATH = str(Path(os.getcwd()) / "data" / "HPatches")
 
@@ -36,7 +37,7 @@ if __name__ == "__main__":
         with torch.no_grad():
             target_hat = unet_magicpoint(img)
 
-            predicted_keypoints = get_keypoint_locations_from_predicted_heatmap(target_hat)
+            predicted_keypoints = get_keypoint_locations_from_predicted_heatmap(target_hat, nms_conf_thr=0.15)
             filename = str(Path(tmp_dir) / "predict_hpatches{}.png".format(count))
             write_image_with_keypoints(img, predicted_keypoints, filename)
 
