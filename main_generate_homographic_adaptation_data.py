@@ -1,5 +1,7 @@
 from pathlib import Path, PureWindowsPath
+import time
 
+from tqdm import tqdm
 import torch
 import cv2
 import numpy as np
@@ -41,7 +43,7 @@ if __name__ == "__main__":
 
     DEBUG_OUTPUT = False
 
-    N_H = 100
+    N_H = 25
     RESAMPLE_SIZE_SQUARE = 384
     NMS_CONF_THRESHOLD = 0.15 # relative to a 0 - 1 range
 
@@ -70,9 +72,21 @@ if __name__ == "__main__":
     output_path = Path(tmp_dir) / Path(f"coco_{which_coco}_ha")
 
     with torch.no_grad():
-        for img_idx in range(len(coco_image_paths)):
+        for img_idx in tqdm(range(len(coco_image_paths))):
+        #for img_idx in range(len(coco_image_paths)):
 
-            print(f"processing image {img_idx}")
+            tic_per_image = time.perf_counter()
+
+            #print("processing image ", img_idx)
+
+            img_name = coco_image_names[img_idx]
+            output_filename = str(output_path / Path(f"{img_name}_ha.png"))
+            output_target_filename = str(output_path / Path(f"{img_name}_ha_target.png"))
+
+            if Path(output_filename).exists() and Path(output_target_filename).exists():
+                continue
+
+            tic = time.perf_counter()
 
             input_image = cv2.imread(coco_image_paths[img_idx])
             # convert RGB to gray (note: OpenCV reads channels as BGR not RGB
@@ -80,9 +94,10 @@ if __name__ == "__main__":
                                     (RESAMPLE_SIZE_SQUARE, RESAMPLE_SIZE_SQUARE),
                                     interpolation=cv2.INTER_AREA)
 
-            img_name = coco_image_names[img_idx]
-            filename = str(output_path / Path(f"{img_name}_ha.png"))
-            cv2.imwrite(filename, gray_image)
+            cv2.imwrite(output_filename, gray_image)
+
+            toc = time.perf_counter()
+            #print(f"Loading image with opencv: {toc - tic:0.4f} seconds")
 
             if DEBUG_OUTPUT:
                 filename = str(Path(tmp_dir) / f"test_ha_{img_idx}.png")
@@ -91,8 +106,11 @@ if __name__ == "__main__":
             img_width = RESAMPLE_SIZE_SQUARE
             img_height = RESAMPLE_SIZE_SQUARE
 
+            tic = time.perf_counter()
+
             # apply the magicpoint predictor to not warped image
             tensor_image = np.array([normalize_2d_gray_image_for_nn(gray_image)])
+
             # initialize the accumulated t hat image
             t_hat = unet_magicpoint(torch.Tensor(tensor_image))
             #print(t_hat.shape)
@@ -107,15 +125,22 @@ if __name__ == "__main__":
             #filename = str(Path(tmp_dir) / f"test_ha_{img_idx}_target_0identity.png")
             #cv2.imwrite(filename, np.float32(255.0) * t_hat_identity)
 
-            predicted_keypoints = get_keypoint_locations_from_predicted_heatmap(torch.Tensor(t_hat_identity),
-                                                                                nms_conf_thr=NMS_CONF_THRESHOLD)
+            toc = time.perf_counter()
+            #print(f"Prep and prediction of identity transform : {toc - tic:0.4f} seconds")
+
             if DEBUG_OUTPUT:
+                predicted_keypoints = get_keypoint_locations_from_predicted_heatmap(torch.Tensor(t_hat_identity),
+                                                                                    nms_conf_thr=NMS_CONF_THRESHOLD)
                 filename = str(Path(tmp_dir) / f"test_ha_{img_idx}_ha_predictions_0identity.png")
                 cv2.imwrite(filename, draw_interest_points(gray_image, predicted_keypoints))
 
             t_hat_accumulated = np.zeros(t_hat_identity.shape, dtype=np.float32)
             # counts for each pixel how often it leads to a valid unwarped heatmap pixel, init with 1 due to identity!
             mask_for_averaging_heatmaps = np.ones(t_hat_identity.shape, dtype=np.uint32)
+
+            tic = time.perf_counter()
+
+            avg_prediction_time = 0.0
 
             # apply a number N_H of homographic adaptations ha
             for ha_idx in range(N_H):
@@ -151,7 +176,10 @@ if __name__ == "__main__":
                 # apply the magicpoint predictor
                 tensor_image = np.array([normalize_2d_gray_image_for_nn(warped_image)])
 
+                tic1 = time.perf_counter()
                 t_hat = unet_magicpoint(torch.Tensor(tensor_image))
+                toc1 = time.perf_counter()
+                avg_prediction_time += np.float32(toc1 - tic1)
 
                 # undo the warping
                 unwarped_target = cv2.warpPerspective(t_hat.numpy().reshape(t_hat.shape[len(t_hat.shape)-2], t_hat.shape[len(t_hat.shape)-1]),
@@ -185,7 +213,12 @@ if __name__ == "__main__":
                 #filename = str(Path("tmp") / f"test_ha_{img_idx}_{ha_idx}_target.png")
                 #cv2.imwrite(filename, t_hat)
 
+            #print(f"------------ average model prediction time : {avg_prediction_time / np.float32(N_H)} seconds")
+
             #print("mask min max", np.min(mask_for_averaging_heatmaps), np.max(mask_for_averaging_heatmaps))
+
+            toc = time.perf_counter()
+            #print(f"Homographic Adaptation loop : {toc - tic:0.4f} seconds")
 
             if HA_MODE_AVERAGING == True:
                 t_hat_accumulated += t_hat_identity
@@ -204,6 +237,7 @@ if __name__ == "__main__":
             #filename = str(Path(tmp_dir) / f"test_ha_{img_idx}_target_1accumulated.png")
             #cv2.imwrite(filename, np.float32(255.0) * t_hat_accumulated)
 
+            tic = time.perf_counter()
 
             predicted_keypoints1 = get_keypoint_locations_from_predicted_heatmap(torch.Tensor(t_hat_identity),
                                                                                  nms_conf_thr=NMS_CONF_THRESHOLD)
@@ -217,10 +251,15 @@ if __name__ == "__main__":
 
             gt_heatmap = generate_gt_heatmap_from_keypoint_list(predicted_keypoints, RESAMPLE_SIZE_SQUARE, RESAMPLE_SIZE_SQUARE)
 
-            #filename = str(Path(tmp_dir) / f"test_ha_{img_idx}_ha_predictions_2final_heatmap.png")
-            img_name = coco_image_names[img_idx]
-            filename = str(output_path / Path(f"{img_name}_ha_target.png"))
-            cv2.imwrite(filename, np.float32(255.0) * gt_heatmap)
+            toc = time.perf_counter()
+            #print(f"Setup final target image: {toc - tic:0.4f} seconds")
 
-            #if img_idx >= 3:
-            #    break
+            tic = time.perf_counter()
+
+            cv2.imwrite(output_target_filename, np.float32(255.0) * gt_heatmap)
+
+            toc = time.perf_counter()
+            #print(f"Writing target image: {toc - tic:0.4f} seconds")
+
+            toc_per_image = time.perf_counter()
+            #print(f"Overall per image: {toc_per_image - tic_per_image:0.4f} seconds")
