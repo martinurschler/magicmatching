@@ -21,7 +21,7 @@ class DoubleConv(torch.nn.Module):
 
 class UNet(torch.nn.Module):
 
-    def __init__(self, in_channels=1, out_channels=1, features = [32, 64, 128, 256]):
+    def __init__(self, in_channels=1, out_channels=1, features = [16, 32, 64, 128]):
         super(UNet, self).__init__()
         self.downs = torch.nn.ModuleList()
         self.ups = torch.nn.ModuleList()
